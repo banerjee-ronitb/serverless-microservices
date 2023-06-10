@@ -1,0 +1,58 @@
+name: AWS Deployment
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    env:
+      TF_VAR_stripe_api_key: ${{ secrets.STRIPE_API_KEY }}
+    steps:
+      - name: GIT Checkout
+        uses: actions/checkout@v2
+      - name: Zip Packages
+        run: |
+          zip -r cancel-order.zip services/order-service/cancel-order/main.py
+          zip -r confirm-order.zip services/order-service/confirm-order/main.py
+          zip -r create-order.zip services/order-service/create-order/main.py
+          zip -r create-payment-intent.zip services/payment-service/create-payment-intent/main.py
+          zip -r payment-intent-webhook.zip services/payment-service/payment-intent-webhook/main.py
+          zip -r retrieve-catalog.zip services/catalog-service/retrieve-catalog/main.py
+          zip -r update-catalog.zip services/catalog-service/update-catalog/main.py
+          zip -r refund-payment.zip services/payment-service/refund-payment/main.py
+          cd shared/libs && cp -r src python && zip -r layers.zip python
+      - name: Login to AWS
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::251263185539:role/github-actions-role
+          role-session-name: GithubSession
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+      - name: Terraform Format
+        run: |
+          cd terraform
+          terraform fmt
+      - name: Terraform Init
+        id: init
+        run: |
+          cd terraform
+          terraform init -backend-config="tfconfig/us-east-1.tfbackend"
+      - name: Terraform Validate
+        id: validate
+        run: |
+          cd terraform
+          pwd
+          terraform validate -no-color
+      - name: Terraform Plan
+        id: plan
+        run: |
+          cd terraform
+          terraform plan -no-color
+      - name: Terraform Apply
+        id: apply
+        run: |
+          cd terraform
+          terraform apply -auto-approve

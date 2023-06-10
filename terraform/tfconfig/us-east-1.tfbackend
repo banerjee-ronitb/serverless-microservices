@@ -1,0 +1,4 @@
+bucket = "ci-cd-terraform"
+key = "tfstate/serverless-microservices"
+region = "us-east-1"
+dynamodb_table = "ci-cd-terraform-locktable"
